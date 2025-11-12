@@ -1,4 +1,3 @@
-// server.js
 import express from "express";
 import cors from "cors";
 
@@ -14,7 +13,9 @@ function initialize() {
     ["blue", "green", "red"],
     ["green", "red", "blue"],
   ];
-  rightGrid = [[], [], []];
+  rightGrid = [[null, null, null], 
+              [null, null, null], 
+              [null, null, null]];
   robot = { x: 0, y: 0, holding: null, side:'left' }; 
   movementHistory = [];
 }
@@ -90,9 +91,12 @@ app.post("/drop", (req, res) => {
   
   const currGrid = robot.side === 'left' ? leftGrid : rightGrid;
 
-  currGrid[robot.y][robot.x] = robot.holding
+  const newX = robot.side === 'left' ? robot.x : robot.x - 3; // Adjust x for right grid
 
-  //include check for if there is a circle in the current position
+  if (currGrid[robot.y][newX])
+    return res.status(400).json({ error: "Position already occupied" });
+
+  currGrid[robot.y][newX] = robot.holding
 
   if (currGrid === leftGrid) {
     leftGrid = currGrid;
@@ -100,8 +104,44 @@ app.post("/drop", (req, res) => {
     rightGrid = currGrid;
   }
 
+   console.log(rightGrid);
+
   robot.holding = null;
   res.json({ leftGrid, rightGrid, robot });
 });
 
-app.listen(3000, () => console.log("✅ Server running on port 3000"));
+app.get("/check", (req, res) => {
+
+  // if all the original grid still has circles, then incorrect
+  const allNull = leftGrid.every(row => row.every(value => value === null));
+
+  if (!allNull) {
+    res.json({ message: "Incorrect Configuration" });
+    return ;
+  }
+
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+       
+        // red can only be on top row
+        if (rightGrid[0][j] !== "red" ) {
+            res.json({ message: "Incorrect Configuration red" });
+            return ;
+        }  
+        
+        if (i !== 0){
+          if (rightGrid[i][j] === "blue" && rightGrid[i-1][j] !== "red") {
+              res.json({ message: "Incorrect Configuration blue" });
+              return ;
+            }
+        }
+    }
+    
+  }
+
+  res.json({ message: "Correct Configuration" });
+
+});
+
+
+app.listen(3001, () => console.log("Server running on port 3001"));
